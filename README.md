@@ -182,8 +182,9 @@ break your pipeline overnight. You move to a new version on purpose (`@v2`).
 
 ## 7. Concepts this workflow only hints at
 
-* **Cache.** The composite action turns on `cache: pip`. The first run downloads packages, later
-  runs restore them. Look for "Cache restored" in the log. A repository gets about 10 GB of cache.
+* **Cache.** The composite action turns on `cache: pip`. Open the `Install Python` step of the
+  `build` job: the first run logs `pip cache is not found` and saves a cache at the end, and the
+  next run logs `Cache restored successfully`. A repository gets about 10 GB of cache.
   The generic version is `actions/cache` with a key built from a file hash.
 * **Authenticating to a cloud without stored passwords (OIDC).** Instead of saving access keys as
   secrets, a job asks GitHub for a short-lived token and the cloud exchanges it for temporary
