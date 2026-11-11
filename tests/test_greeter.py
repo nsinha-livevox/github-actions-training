@@ -11,3 +11,7 @@ def test_given_name():
 
 def test_blank_name_falls_back():
     assert greet("   ") == "Hello, world!"
+
+
+def test_greeting_ends_with_an_exclamation_mark():
+    assert greet("Bob").endswith("!")
