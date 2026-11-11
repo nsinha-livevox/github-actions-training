@@ -117,7 +117,7 @@ jobs:
   test:
     uses: nsinha-livevox/github-actions-workflows/.github/workflows/reusable-python-test.yml@v1
     with:
-      python-versions: '["3.11", "3.12"]'               # the matrix: one test job per version
+      python-versions: '["3.11", "3.12", "3.13"]'               # the matrix: one test job per version
 
   # (9) JOB "publish": runs only after "build" and "test" succeeded, and only on main.
   publish:
