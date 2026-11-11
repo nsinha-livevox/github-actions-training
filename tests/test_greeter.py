@@ -6,7 +6,7 @@ def test_default_name():
 
 
 def test_given_name():
-    assert greet("Alice") == "Hello, Alice!"
+    assert greet("Alice") == "Hello there, Alice!"
 
 
 def test_blank_name_falls_back():
