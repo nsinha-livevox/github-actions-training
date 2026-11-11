@@ -175,8 +175,9 @@ break your pipeline overnight. You move to a new version on purpose (`@v2`).
    repository is public), re-run, and look for `***`.
 6. **Open a pull request.** Everything runs except `publish` (line 125). Then merge it and watch
    `publish` run on `main`.
-7. **Push twice quickly** to a branch. The first run shows as **cancelled** (concurrency, lines
-   25 to 27).
+7. **Push twice quickly** to `main`, a few seconds apart. The first run shows as **cancelled**
+   (concurrency, lines 25 to 27). A branch only runs this workflow when it has an open pull
+   request, so use `main`, or push twice to a pull request branch.
 8. **Call a pipeline from your own repository.** Copy lines 117 to 120 into a new repository that
    has a `tests/` folder and a `requirements.txt`.
 
