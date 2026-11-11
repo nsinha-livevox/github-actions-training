@@ -1,0 +1,145 @@
+# =============================================================================
+# GitHub Actions training: a small workflow you can run and read.
+# Every numbered marker (1) ... (9) below is explained in README.md.
+# =============================================================================
+
+# (1) NAME: what you see in the "Actions" tab of the repository.
+name: CI
+
+# (2) TRIGGERS: when does this workflow run?
+on:
+  push:
+    branches: [main]            # every push to main
+  pull_request:                 # every pull request
+  workflow_dispatch:            # the "Run workflow" button in the Actions tab
+    inputs:
+      who:
+        description: Who should we greet?
+        default: world
+
+# (3) PERMISSIONS: least privilege for the automatic GITHUB_TOKEN (read-only here).
+permissions:
+  contents: read
+
+# (4) CONCURRENCY: a new push to the same branch cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# (5) VARIABLES, workflow level: every job and every step can read GREETING.
+env:
+  GREETING: Hello
+
+jobs:
+  # (6) JOB "hello": the basics. A job = a machine (runs-on) + a list of steps.
+  hello:
+    runs-on: ubuntu-latest
+    env:
+      JOB_LEVEL: only-in-this-job           # job level: overrides workflow level, only this job sees it
+    steps:
+      - name: Say hello                     # a "run" step = a shell command
+        run: echo "$GREETING from ${{ github.actor }} on branch ${{ github.ref_name }}"
+
+      - name: Get the code                  # a "uses" step = a ready-made action
+        uses: actions/checkout@v4
+
+      - name: Three levels of variables
+        env:
+          STEP_LEVEL: only-in-this-step     # step level: only this step sees it
+        run: |
+          echo "workflow level: $GREETING"
+          echo "job level:      $JOB_LEVEL"
+          echo "step level:     $STEP_LEVEL"
+          ls
+
+      # Secrets can only be read through an expression like ${{ secrets.NAME }}.
+      # Add DEMO_SECRET under Settings > Secrets and variables > Actions, re-run, and the log
+      # shows *** instead of the value.
+      - name: Secrets are masked in the log
+        env:
+          DEMO_SECRET: ${{ secrets.DEMO_SECRET }}
+        run: |
+          if [ -n "$DEMO_SECRET" ]; then
+            echo "The secret is: $DEMO_SECRET"
+          else
+            echo "No DEMO_SECRET configured yet."
+          fi
+
+      # A conditional step: "if" decides whether the step runs at all.
+      - name: Only on a manual run
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: echo "You pressed the Run workflow button."
+
+      # A COMPOSITE ACTION from the other repository: several steps packaged as one.
+      - name: Write a summary (composite action)
+        uses: nsinha-livevox/github-actions-workflows/.github/actions/write-summary@v1
+        with:
+          title: Hello job
+          message: Greeting is **${{ env.GREETING }}**, started by **${{ github.actor }}**.
+
+  # (7) JOB "build": passing data between steps and between jobs, and a file artifact.
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}     # job output: other jobs can read it
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      # Another composite action from the other repository: Python plus the pip cache.
+      - name: Set up Python (composite action)
+        uses: nsinha-livevox/github-actions-workflows/.github/actions/setup-python-env@v1
+        with:
+          python-version: '3.12'
+
+      - name: Work out the version                      # step output: written to $GITHUB_OUTPUT
+        id: version
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the package
+        env:
+          WHO: ${{ inputs.who || 'world' }}             # "inputs" only has a value on a manual run
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir dist
+          python -m app.greeter "$WHO" > dist/greeting.txt
+          echo "$VERSION" > dist/VERSION
+          cat dist/greeting.txt
+
+      - name: Keep the package (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: dist/
+
+  # (8) JOB "test": a REUSABLE WORKFLOW from the other repository. This job has no steps here:
+  # the whole job (runner, matrix, steps) is defined in reusable-python-test.yml.
+  test:
+    uses: nsinha-livevox/github-actions-workflows/.github/workflows/reusable-python-test.yml@v1
+    with:
+      python-versions: '["3.11", "3.12"]'               # the matrix: one test job per version
+
+  # (9) JOB "publish": runs only after "build" and "test" succeeded, and only on main.
+  publish:
+    needs: [build, test]                                # waits for both; skipped if either fails
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the package from "build"
+        uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: dist/
+
+      - name: Pretend to publish
+        env:
+          VERSION: ${{ needs.build.outputs.version }}   # read the job output of "build"
+        run: |
+          echo "Would publish version $VERSION"
+          ls -l dist/
+
+      - name: Write a summary (composite action)
+        uses: nsinha-livevox/github-actions-workflows/.github/actions/write-summary@v1
+        with:
+          title: Publish job
+          message: Version **${{ needs.build.outputs.version }}** would be published.
